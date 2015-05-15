@@ -1,0 +1,59 @@
+#!/usr/bin/env python
+
+from struct import *
+from datetime import datetime
+import ctypes
+
+def readWord(f):
+    return f.read(4)[::-1].encode('hex')
+
+def readBlock(f):
+    return [
+        readWord(f),
+        readWord(f),
+        readWord(f),
+        readWord(f),
+        readWord(f),
+        readWord(f)
+    ]
+
+ACTION_CLICK = 16777217
+ACTION_ROTATION = 458754
+
+with open('/dev/input/event6') as f:
+    while True:
+
+        # first block
+        firstBlock = readBlock(f)
+
+        ts1 = datetime.fromtimestamp(int(firstBlock[0], 16))
+        action = int(firstBlock[4], 16)
+        direction = ctypes.c_int32(int(firstBlock[5], 16)).value
+
+        if action == ACTION_CLICK:
+
+            if direction > 0:
+                direction = 'KEYDOWN'
+            else:
+                direction = 'KEYUP'
+
+        elif action == ACTION_ROTATION:
+
+            if direction > 0:
+                direction = 'ORARIO +' + str(direction)
+            else:
+                direction = 'ANTI-ORARIO ' + str(direction)
+            
+                
+
+        print str(ts1) + ' ' + direction
+
+        # second block
+
+        readWord(f)
+        readWord(f)
+        readWord(f)
+        readWord(f)
+        readWord(f)
+        readWord(f)
+
