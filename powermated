@@ -1,49 +1,13 @@
 #!/usr/bin/env python
 
-from datetime import datetime
 from subprocess import call
-import ctypes
+from evdev import InputDevice, ecodes
 import sys
+import gudev
+import glib
 
-# @see input.h
-EV_SYN = 0x00
-EV_KEY = 0x01
-EV_REL = 0x02
-
-EV_TYPE_UP = 'UP'
-EV_TYPE_DOWN = 'DOWN'
-
-VOLUME_CMD = ['amixer', '-D', 'pulse', 'sset', 'Master', '1%']
+VOLUME_CMD = ['amixer', '-D', 'pulse', 'sset', 'Master']
 MUTE_CMD = ['amixer', '-D', 'pulse', 'sset', 'Master', 'toggle']
-
-
-def read_word(f):
-    """
-    Read a 32bit word and reverse it because of big endianes
-
-    :param f: the file descriptor
-    :return: the hex representation of the 32bit word
-    :rtype : str
-    """
-    return f.read(4)[::-1].encode('hex')
-
-
-def read_block(f):
-    """
-    Read a block of bytes representing an event
-
-    :param f:  the file descriptor
-    :return: the list of 6 words representing an event
-    :rtype : str
-    """
-    return [
-        read_word(f),
-        read_word(f),
-        read_word(f),
-        read_word(f),
-        read_word(f),
-        read_word(f)
-    ]
 
 
 def run(device):
@@ -53,55 +17,61 @@ def run(device):
 
     :param device: the name of the device to read
     """
-    with open(device) as f:
-        while True:
 
-            # first block
-            first_block = read_block(f)
+    for event in InputDevice(device).read_loop():
 
-            # read the event timestamp
-            ts = datetime.fromtimestamp(int(first_block[0], 16))
+        # event action: mute
+        if event.type == ecodes.EV_KEY:
 
-            # read the event identifier
-            event_name = int(first_block[4][-2:], 16)
+            if event.value == 1:
+                call(MUTE_CMD)
 
-            # read the event modifier
-            event_type = ctypes.c_int32(int(first_block[5], 16)).value
+        # event action: volume
+        elif event.type == ecodes.EV_REL:
 
-            # read the value associated to the current event
-            event_value = None
+            cmd = VOLUME_CMD[:]
+            cmd.append(str(abs(event.value)) + '%')
 
-            # event actions: mute
-            if event_name == EV_KEY:
+            if event.value > 0:
+                cmd[-1] += '+'
+            else:
+                cmd[-1] += '-'
 
-                if event_type > 0:
-                    event_type = EV_TYPE_DOWN
-                    call(MUTE_CMD)
-                else:
-                    event_type = EV_TYPE_UP
+            call(cmd)
 
-            # event actions: volume
-            elif event_name == EV_REL:
+    # detect device plug with gudev
+    # client = gudev.Client(['block', 'usb'])
+    # client.connect('uevent', on_uevent)
+    #
+    # print "\n --- WAITING FOR EVENTS ---"
+    # glib.MainLoop().run()
 
-                event_value = event_type
-                cmd = VOLUME_CMD[:]
 
-                if event_type > 0:
-                    event_type = EV_TYPE_UP
-                    cmd[-1] += '+'
-                else:
-                    event_type = EV_TYPE_DOWN
-                    cmd[-1] += '-'
+def print_device(device):
+    print "subsystem", device.get_subsystem()
+    print "devtype", device.get_devtype()
+    print "name", device.get_name()
+    print "number", device.get_number()
+    print "sysfs_path:", device.get_sysfs_path()
+    print "driver:", device.get_driver()
+    print "action:", device.get_action()
+    print "seqnum:", device.get_seqnum()
+    print "device type:", device.get_device_type()
+    print "device number:", device.get_device_number()
+    print "device file:", device.get_device_file()
+    print "device file symlinks:", ", ".join(device.get_device_file_symlinks())
+    print "device keys:", ", ".join(device.get_property_keys())
+    for device_key in device.get_property_keys():
+        print "   device property %s: %s"  % (device_key, device.get_property(device_key))
 
-                call(cmd)
 
-            event_name_desc = 'CLICK' if event_name == EV_KEY else 'ROTATION'
-            event_value_desc = event_value if event_value is not None else ''
+def on_uevent(client, action, device):
 
-            print "%s %s %s %s" % (ts, event_name_desc, event_type, event_value_desc)
+    # if the device is a Griffin Powermate
+    if device.get_property('ID_MODEL') == 'Griffin_PowerMate':
+        print 'Griffin PowerMate ' + action
+        print_device(device)
 
-            # second block: ignored
-            read_block(f)
 
 if __name__ == "__main__":
 
