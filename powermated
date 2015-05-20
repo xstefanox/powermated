@@ -3,8 +3,7 @@
 from subprocess import call
 from evdev import InputDevice, ecodes
 import sys
-import gudev
-import glib
+import errno
 
 VOLUME_CMD = ['amixer', '-D', 'pulse', 'sset', 'Master']
 MUTE_CMD = ['amixer', '-D', 'pulse', 'sset', 'Master', 'toggle']
@@ -18,59 +17,38 @@ def run(device):
     :param device: the name of the device to read
     """
 
-    for event in InputDevice(device).read_loop():
+    try:
+        for event in InputDevice(device).read_loop():
 
-        # event action: mute
-        if event.type == ecodes.EV_KEY:
+            # event action: mute
+            if event.type == ecodes.EV_KEY:
 
-            if event.value == 1:
-                call(MUTE_CMD)
+                if event.value == 1:
+                    call(MUTE_CMD)
 
-        # event action: volume
-        elif event.type == ecodes.EV_REL:
+            # event action: volume
+            elif event.type == ecodes.EV_REL:
 
-            cmd = VOLUME_CMD[:]
-            cmd.append(str(abs(event.value)) + '%')
+                cmd = VOLUME_CMD[:]
+                cmd.append(str(abs(event.value)) + '%')
 
-            if event.value > 0:
-                cmd[-1] += '+'
-            else:
-                cmd[-1] += '-'
+                if event.value > 0:
+                    cmd[-1] += '+'
+                else:
+                    cmd[-1] += '-'
 
-            call(cmd)
+                call(cmd)
 
-    # detect device plug with gudev
-    # client = gudev.Client(['block', 'usb'])
-    # client.connect('uevent', on_uevent)
-    #
-    # print "\n --- WAITING FOR EVENTS ---"
-    # glib.MainLoop().run()
+    except IOError, e:
+        # terminate silently on device disconnected
+        if e.errno == errno.ENODEV:
+            pass
+        else:
+            raise e
 
-
-def print_device(device):
-    print "subsystem", device.get_subsystem()
-    print "devtype", device.get_devtype()
-    print "name", device.get_name()
-    print "number", device.get_number()
-    print "sysfs_path:", device.get_sysfs_path()
-    print "driver:", device.get_driver()
-    print "action:", device.get_action()
-    print "seqnum:", device.get_seqnum()
-    print "device type:", device.get_device_type()
-    print "device number:", device.get_device_number()
-    print "device file:", device.get_device_file()
-    print "device file symlinks:", ", ".join(device.get_device_file_symlinks())
-    print "device keys:", ", ".join(device.get_property_keys())
-    for device_key in device.get_property_keys():
-        print "   device property %s: %s"  % (device_key, device.get_property(device_key))
-
-
-def on_uevent(client, action, device):
-
-    # if the device is a Griffin Powermate
-    if device.get_property('ID_MODEL') == 'Griffin_PowerMate':
-        print 'Griffin PowerMate ' + action
-        print_device(device)
+    # terminate silently on Ctrl-C
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":
