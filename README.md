@@ -1,2 +1,2 @@
-# powermater
-A simple driver to use Griffin Powermate on Linux
+# powermated
+A simple driver to use the Griffin PowerMate on Linux
