@@ -1,12 +1,24 @@
 #!/usr/bin/env python
 
-from subprocess import call
 from evdev import InputDevice, ecodes
+import subprocess
 import sys
 import errno
+import logging
 
 VOLUME_CMD = ['amixer', '-D', 'pulse', 'sset', 'Master']
-MUTE_CMD = ['amixer', '-D', 'pulse', 'sset', 'Master', 'toggle']
+MUTE_TOGGLE = 0
+
+
+def execute(cmd, logger):
+
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+
+    if stdout:
+        logger.debug(stdout)
+    if stderr:
+        logger.debug(stderr)
 
 
 def run(device):
@@ -17,14 +29,31 @@ def run(device):
     :param device: the name of the device to read
     """
 
+    logger = logging.getLogger('powermated')
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(logging.StreamHandler(sys.stdout))
+
+    logger.debug('Listening on ' + device)
+
     try:
+
         for event in InputDevice(device).read_loop():
+
+            # ignore synchronization events
+            if event.type == ecodes.EV_SYN:
+                continue
+
+            logger.debug('Received event: ' + str(event))
 
             # event action: mute
             if event.type == ecodes.EV_KEY:
 
-                if event.value == 1:
-                    call(MUTE_CMD)
+                cmd = VOLUME_CMD[:]
+                cmd.append('toggle')
+
+                if event.value == MUTE_TOGGLE:
+
+                    execute(cmd, logger)
 
             # event action: volume
             elif event.type == ecodes.EV_REL:
@@ -37,18 +66,21 @@ def run(device):
                 else:
                     cmd[-1] += '-'
 
-                call(cmd)
+                execute(cmd, logger)
 
     except IOError, e:
-        # terminate silently on device disconnected
+
         if e.errno == errno.ENODEV:
-            pass
+            logger.debug('Device unplugged')
         else:
+            logger.error(e.message)
             raise e
 
-    # terminate silently on Ctrl-C
     except KeyboardInterrupt:
-        pass
+        logger.debug('Terminating')
+
+    except OSError, e:
+        logger.debug('Error: ' + str(e.strerror))
 
 
 if __name__ == "__main__":
