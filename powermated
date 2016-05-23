@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from evdev import InputDevice, ecodes
+from evdev import InputDevice, ecodes, list_devices
 import subprocess
 import sys
 import errno
@@ -9,6 +9,17 @@ import logging
 VOLUME_CMD = ['amixer', '-D', 'pulse', 'sset', 'Master']
 MUTE_TOGGLE = 0
 
+class DeviceNotFound(Exception):
+    pass
+
+def find_device():
+    devices = [InputDevice(fn) for fn in list_devices()]
+    for device in devices:
+        if device.name.find('PowerMate') != -1:
+            print ('Device found: ' + device.name + ' (' + device.phys + ')')
+            run(device.fn)
+            sys.exit()
+    raise DeviceNotFound
 
 def execute(cmd, logger):
 
@@ -85,8 +96,14 @@ def run(device):
 
 if __name__ == "__main__":
 
-    if len(sys.argv) < 2:
-        print 'Usage: powermated <device>'
-        sys.exit()
+    if len(sys.argv) > 1:
+        run(sys.argv[1])
+    else:
+        print 'Attempting to find device...'
+        try:
+            find_device()
+        except DeviceNotFound:
+            print 'Couldn\'t find device.\n'
+            print 'Try: powermated <device>'
+            sys.exit()
 
-    run(sys.argv[1])
