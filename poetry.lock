@@ -1,0 +1,14 @@
+[[package]]
+category = "main"
+description = "Bindings to the Linux input handling subsystem"
+name = "evdev"
+optional = false
+python-versions = "*"
+version = "1.2.0"
+
+[metadata]
+content-hash = "ca795258e78a1fd6410b3cbde59ffd58d74ce4734cabb0ea7fc7574961c75ab9"
+python-versions = "^3.7"
+
+[metadata.hashes]
+evdev = ["b03f5e1be5b4a5327494a981b831d251a142b09e8778eda1a8b53eba91100166"]
