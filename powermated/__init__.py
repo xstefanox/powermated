@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 from evdev import InputDevice, ecodes, list_devices
 import subprocess
 import sys
@@ -9,20 +7,22 @@ import logging
 VOLUME_CMD = ['amixer', '-D', 'pulse', 'sset', 'Master']
 MUTE_TOGGLE = 0
 
+
 class DeviceNotFound(Exception):
     pass
+
 
 def find_device():
     devices = [InputDevice(fn) for fn in list_devices()]
     for device in devices:
         if device.name.find('PowerMate') != -1:
-            print ('Device found: ' + device.name + ' (' + device.phys + ')')
+            print('Device found: ' + device.name + ' (' + device.phys + ')')
             run(device.fn)
             sys.exit()
     raise DeviceNotFound
 
-def execute(cmd, logger):
 
+def execute(cmd, logger):
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
 
@@ -33,7 +33,6 @@ def execute(cmd, logger):
 
 
 def run(device):
-
     """
     Monitor the given device and modify the sound volume
 
@@ -63,7 +62,6 @@ def run(device):
                 cmd.append('toggle')
 
                 if event.value == MUTE_TOGGLE:
-
                     execute(cmd, logger)
 
             # event action: volume
@@ -79,7 +77,7 @@ def run(device):
 
                 execute(cmd, logger)
 
-    except IOError, e:
+    except IOError as e:
 
         if e.errno == errno.ENODEV:
             logger.debug('Device unplugged')
@@ -90,20 +88,22 @@ def run(device):
     except KeyboardInterrupt:
         logger.debug('Terminating')
 
-    except OSError, e:
+    except OSError as e:
         logger.debug('Error: ' + str(e.strerror))
 
 
-if __name__ == "__main__":
-
+def main():
     if len(sys.argv) > 1:
         run(sys.argv[1])
     else:
-        print 'Attempting to find device...'
+        print('Attempting to find device...')
         try:
             find_device()
         except DeviceNotFound:
-            print 'Couldn\'t find device.\n'
-            print 'Try: powermated <device>'
+            print('Couldn\'t find device.\n')
+            print('Try: powermated <device>')
             sys.exit()
 
+
+if __name__ == "__main__":
+    main()
