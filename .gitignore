@@ -1,4 +1,5 @@
 /.idea/
 /powermated.egg-info/
+/.venv/
 /dist/
 /test/__pycache__/

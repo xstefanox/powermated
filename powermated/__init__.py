@@ -100,8 +100,7 @@ def main():
         try:
             find_device()
         except DeviceNotFound:
-            print('Couldn\'t find device.\n')
-            print('Try: powermated <device>')
+            print("Couldn't find device.\nTry: powermated <device>")
             sys.exit()
 
 
