@@ -7,43 +7,39 @@ import logging
 VOLUME_CMD = ['amixer', '-D', 'pulse', 'sset', 'Master']
 MUTE_TOGGLE = 0
 
-
-class DeviceNotFound(Exception):
-    pass
+log = logging.getLogger('powermated')
+log.setLevel(logging.DEBUG)
+log.addHandler(logging.StreamHandler(sys.stdout))
 
 
 def find_device():
+    log.info("Searching for Griffin Powermate input device")
     devices = [InputDevice(fn) for fn in list_devices()]
     for device in devices:
         if device.name.find('PowerMate') != -1:
-            print('Device found: ' + device.name + ' (' + device.phys + ')')
-            run(device.fn)
-            sys.exit()
-    raise DeviceNotFound
+            log.info(f"Device found: ${device.name} (${device.phys})")
+            return [device.fn]
+    return []
 
 
-def execute(cmd, logger):
+def run_process(cmd):
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
 
     if stdout:
-        logger.debug(stdout)
+        log.debug(stdout)
     if stderr:
-        logger.debug(stderr)
+        log.debug(stderr)
 
 
-def run(device):
+def listen_on(device):
     """
     Monitor the given device and modify the sound volume
 
     :param device: the name of the device to read
     """
 
-    logger = logging.getLogger('powermated')
-    logger.setLevel(logging.DEBUG)
-    logger.addHandler(logging.StreamHandler(sys.stdout))
-
-    logger.debug('Listening on ' + device)
+    log.debug('Listening on ' + device)
 
     try:
 
@@ -53,7 +49,7 @@ def run(device):
             if event.type == ecodes.EV_SYN:
                 continue
 
-            logger.debug('Received event: ' + str(event))
+            log.debug(f'Received event: ${event}')
 
             # event action: mute
             if event.type == ecodes.EV_KEY:
@@ -62,7 +58,7 @@ def run(device):
                 cmd.append('toggle')
 
                 if event.value == MUTE_TOGGLE:
-                    execute(cmd, logger)
+                    run_process(cmd)
 
             # event action: volume
             elif event.type == ecodes.EV_REL:
@@ -75,33 +71,37 @@ def run(device):
                 else:
                     cmd[-1] += '-'
 
-                execute(cmd, logger)
+                run_process(cmd)
 
     except IOError as e:
 
         if e.errno == errno.ENODEV:
-            logger.debug('Device unplugged')
+            log.debug('Device unplugged')
         else:
-            logger.error(e.message)
+            log.error(e.message)
             raise e
 
     except KeyboardInterrupt:
-        logger.debug('Terminating')
+        log.debug('Terminating')
 
-    except OSError as e:
-        logger.debug('Error: ' + str(e.strerror))
+
+def run(device):
+    if device is not None:
+        listen_on(device)
+    else:
+        device = find_device()
+        if len(device) == 0:
+            log.error("Couldn't find device, try: powermated <device>")
+            sys.exit(1)
+        elif len(device) > 1:
+            log.error("Multiple devices found, try: powermated <device>")
+            sys.exit(1)
+        else:
+            listen_on(device[0])
 
 
 def main():
-    if len(sys.argv) > 1:
-        run(sys.argv[1])
-    else:
-        print('Attempting to find device...')
-        try:
-            find_device()
-        except DeviceNotFound:
-            print("Couldn't find device.\nTry: powermated <device>")
-            sys.exit()
+    run(sys.argv[1] if len(sys.argv) > 1 else None)
 
 
 if __name__ == "__main__":
