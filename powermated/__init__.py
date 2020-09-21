@@ -6,6 +6,9 @@ import pulsectl
 from logging import DEBUG
 
 KEY_PRESS = 1
+INCREASE = 1
+INCREASE_AMOUNT = 0.02
+DECREASE_AMOUNT = -0.02
 
 log = logging.getLogger('powermated')
 log.setLevel(DEBUG)
@@ -57,13 +60,16 @@ def listen_on(device):
                 # event action: volume
                 elif event.type == ecodes.EV_REL:
 
-                    increase = event.value / 100
-
-                    if log.isEnabledFor(DEBUG):
-                        log.debug('Received %s: volume %s', event, 'increase' if increase > 0 else 'decrease')
-
-                    for sink in pulse.sink_list():
-                        pulse.volume_change_all_chans(sink, increase)
+                    if event.value == INCREASE:
+                        log.debug('Received %s: increasing volume', event)
+                        for sink in pulse.sink_list():
+                            log.debug('Adjusting sink %s', sink)
+                            pulse.volume_change_all_chans(sink, INCREASE_AMOUNT)
+                    else:
+                        log.debug('Received %s: decreasing volume', event)
+                        for sink in pulse.sink_list():
+                            log.debug('Adjusting sink %s', sink)
+                            pulse.volume_change_all_chans(sink, DECREASE_AMOUNT)
 
                 else:
 
