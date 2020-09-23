@@ -1,2 +1,0 @@
-## give write rights on the device to the audio group, in order to make it manageable with python-evdev without sudoing
-KERNEL=="event*", ATTRS{name}=="Griffin PowerMate", MODE="0660", GROUP="audio"
