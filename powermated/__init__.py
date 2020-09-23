@@ -53,9 +53,12 @@ def listen_on(device):
 
                     if event.value == KEY_PRESS:
                         for sink in pulse.sink_list():
-                            mute = not sink.mute
-                            log.debug('Received %s: %s', event, 'muting' if mute else 'unmuting')
-                            pulse.mute(sink, mute)
+                            if sink.mute:
+                                log.debug('Received %s, unmuting sink %s', event, sink.description)
+                                pulse.mute(sink, False)
+                            else:
+                                log.debug('Received %s, muting sink %s', event, sink.description)
+                                pulse.mute(sink, True)
 
                 # event action: volume
                 elif event.type == ecodes.EV_REL:
@@ -63,8 +66,11 @@ def listen_on(device):
                     if event.value == INCREASE:
                         log.debug('Received %s: increasing volume', event)
                         for sink in pulse.sink_list():
-                            log.debug('Adjusting sink %s', sink)
-                            pulse.volume_change_all_chans(sink, INCREASE_AMOUNT)
+                            if sink.volume.value_flat == 1.0:
+                                log.debug('Skipping volume increasing for sink %s', sink)
+                            else:
+                                log.debug('Adjusting sink %s', sink)
+                                pulse.volume_change_all_chans(sink, INCREASE_AMOUNT)
                     else:
                         log.debug('Received %s: decreasing volume', event)
                         for sink in pulse.sink_list():
